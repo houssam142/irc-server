@@ -1,4 +1,4 @@
-#include "server.h"
+#include "includes/server.h"
 
 int accept_connections(int epoll_fd, int sockfd)
 {
@@ -9,8 +9,10 @@ int accept_connections(int epoll_fd, int sockfd)
     perror("accept");
     return -1;
   }
+  t_client  cls;
   int flags = fcntl(new_fd, F_GETFL, 0);
   fcntl(new_fd, F_SETFL, flags | O_NONBLOCK);
+  memset(&cls, 0, sizeof(t_client));
   client_event.events = EPOLLIN;
   client_event.data.fd = new_fd;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, new_fd, &client_event) < 0)
@@ -35,7 +37,9 @@ int receive_data(int client_fd)
     return -1;
   }
   buff[bytes] = '\0';
-
+  bool parse_flag = parse_input(buff, &cls);
+  if (!parse_flag)
+    return 1;
   return 0;
 }
 
@@ -111,6 +115,8 @@ int main(int ac, char **av)
         int ret = receive_data(events[i].data.fd);
         if (ret < 0)
           continue;
+        i++;
+        continue;
       }
     }
   }

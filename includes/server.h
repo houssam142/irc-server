@@ -11,6 +11,7 @@
 # include <stdbool.h>
 # include <errno.h>
 # include <fcntl.h>
+# include "parse.h"
 
 #define MAX_EVENTS 100
 

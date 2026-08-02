@@ -2,11 +2,11 @@ SRCS = server.c \
         parsing/input.c \
 	parsing/parse_utils.c
 
-CC = cc
+CC = gcc
 
 OBJS = $(SRCS:.c=.o)
 
-CFLAGS = -Wall -Wextra -Werror -g
+CFLAGS = -Wall -Wextra -Werror -g -no-pie
 
 EXEC = irc_server
 
@@ -18,7 +18,9 @@ all: $(EXEC)
 
 $(EXEC): $(OBJS)
 	@make -s -C ./libft
-	$(CC) $(CFLAGS) $(OBJS) $(LIBFT_LIB) -o $(EXEC)
+	$(CC) $(OBJS) -no-pie $(LIBFT_LIB) -o $(EXEC)
+%o: %.c
+	$(CC) $(CFLAG) -c $< -o $@
 
 clean:
 	@make -s fclean -C ./libft

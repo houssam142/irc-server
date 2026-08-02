@@ -13,6 +13,9 @@
 # include <fcntl.h>
 # include "parse.h"
 
-#define MAX_EVENTS 100
+#define MAX_EVENTS 1000
+# define MAX_CLIENTS 1024
+
+extern int max_file_descriptors;
 
 typedef struct epoll_event epoll_t;

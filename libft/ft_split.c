@@ -12,7 +12,7 @@
 
 #include "libft.h"
 
-static char	**ft_free(char **tab)
+char	**ft_free(char **tab)
 {
 	unsigned int	i;
 

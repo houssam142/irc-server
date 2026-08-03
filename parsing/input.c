@@ -8,7 +8,7 @@ bool  handle_username(t_client cls[], int client_fd, char *buffer)
   free(tmp);
   if (!args[0])
   {
-    cls[client_fd].error_message = ft_strdup("<USER>: needs exactly three arguments <username>, <hostname> and <realname>");
+    cls[client_fd].error_message = ft_strdup("<USER>: needs exactly three arguments <username>, <hostname> and <realname>\n");
     free(args);
     return false;
   }
@@ -21,7 +21,7 @@ bool  handle_username(t_client cls[], int client_fd, char *buffer)
   }
   if (get_array_size(words) != 3)
   {
-    cls[client_fd].error_message = ft_strdup("<USER>: needs exactly three arguments <username>, <hostname> and <realname>");
+    cls[client_fd].error_message = ft_strdup("<USER>: needs exactly three arguments <username>, <hostname> and <realname>\n");
     ft_free(words);
     free(args);
     return false;
@@ -34,6 +34,31 @@ bool  handle_username(t_client cls[], int client_fd, char *buffer)
   printf("client hostname: %s\n", cls[client_fd].hostname);
   printf("client real_name: %s\n", cls[client_fd].real_name);
   return true;
+}
+
+void broadcast(int client_fd, int except_fd)
+{
+  ssize_t n;
+  char msg[64];
+
+  sprintf(msg, "Client %d disconnected from the server\n", except_fd);
+  n = send(client_fd, msg, ft_strlen(msg), 0);
+  if (n < 0)
+  {
+    fprintf(stderr, "Failed to send msg to the client(s)\n");
+    return ;
+  }
+}
+
+int quit_command(t_client cls[], int client_fd)
+{
+  free_client(cls, client_fd);
+  for (int i = 0; i <= max_file_descriptors; i++)
+  {
+    if (cls[i].fd != 0 && cls[i].fd != -1 && cls[i].fd != client_fd)
+      broadcast(cls[i].fd, client_fd);
+  }
+  return 0;
 }
 
 bool  handle_nickname(char *buffer, t_client cls[], int client_fd)
@@ -79,25 +104,89 @@ bool  handle_nickname(char *buffer, t_client cls[], int client_fd)
   return true;
 }
 
-bool parse_input(char *buff, t_client cls[], int client_fd)
+bool handle_password(t_client cls[], int client_fd, char *buff)
+{
+  char *tmp = ft_substr(buff, ft_strlen("PASS") + 1, ft_strlen(buff));
+  char *arg = ft_strtrim(tmp, " \t\n");
+  free(tmp);
+  if (!arg[0])
+  {
+    cls[client_fd].error_message = ft_strdup("<PASS>: needs only one argument\n");
+    free(arg);
+    return false;
+  }
+  char **words = ft_split(arg, ' ');
+  if (!words)
+  {
+    fprintf(stderr, "ft_split failed due to...\n");
+    free(arg);
+    return false;
+  }
+  if (get_array_size(words) != 1)
+  {
+    cls[client_fd].error_message = ft_strdup("<PASS>: needs only one argument\n");
+    ft_free(words);
+    free(arg);
+    return false;
+  }
+  ft_free(words);
+  if (strcmp(arg, cls[client_fd].server->password))
+  {
+    cls[client_fd].error_message = ft_strdup("incorrect password, try again\n");
+    free(arg);
+    return false;
+  }
+  cls[client_fd].is_matched = true;
+  cls[client_fd].server_password = ft_strdup(arg);
+  free(arg);
+  return true;
+}
+
+int parse_input(char *buff, t_client cls[], int client_fd)
 {
   char  *buff_trimed = ft_strtrim(buff, " \t");
-  if (!ft_strncmp(buff_trimed, "NICK", 4))
+  if (!ft_strncmp(buff_trimed, "PASS", 4))
   {
-    if (!handle_nickname(buff_trimed, cls, client_fd))
-      return false;
+    bool isMatched = handle_password(cls, client_fd, buff_trimed);
+    if (!isMatched)
+      return 1;
   }
-  else if (!ft_strncmp(buff_trimed, "USER", 4))
+  else if (!ft_strncmp(buff_trimed, "NICK", 4))
   {
+    if (!cls[client_fd].is_matched)
+    {
+      cls[client_fd].error_message = ft_strdup("Can't execute command: not connected to the server\n");
+      return 1;
+    }
+    if (!handle_nickname(buff_trimed, cls, client_fd))
+      return 1;
+  }
+  else if (cls[client_fd].is_matched && !ft_strncmp(buff_trimed, "USER", 4))
+  {
+    if (!cls[client_fd].is_matched)
+    {
+      cls[client_fd].error_message = ft_strdup("Can't execute command: not connected to the server\n");
+      return 1;
+    }
     if (!handle_username(cls, client_fd, buff_trimed))
-      return false;
+      return 1;
+  }
+  else if (cls[client_fd].is_matched && !ft_strncmp(buff_trimed, "QUIT", 4))
+  {
+    if (!cls[client_fd].is_matched)
+    {
+      cls[client_fd].error_message = ft_strdup("Can't execute command: not connected to the server\n");
+      return 1;
+    }
+    if (!quit_command(cls, client_fd))
+      return 2;
   }
   else
   {
     cls[client_fd].error_message = ft_strdup("Irc server: Command not supported\n");
     free(buff_trimed);
-    return false;
+    return 1;
   }
   free(buff_trimed);
-  return true;
+  return 0;
 }

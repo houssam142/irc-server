@@ -2,6 +2,7 @@
 
 int max_file_descriptors;
 
+
 void  free_client(t_client cls[], int client_fd)
 {
   if (cls[client_fd].nick)
@@ -14,10 +15,24 @@ void  free_client(t_client cls[], int client_fd)
     free(cls[client_fd].real_name);
   if (cls[client_fd].error_message)
     free(cls[client_fd].error_message);
+  close(client_fd);
   cls[client_fd].fd = -1;
 }
 
-int accept_connections(int epoll_fd, int sockfd, t_client cls[], epoll_t events[])
+bool start_message(char *msg, int client_fd)
+{
+  ssize_t n;
+
+  n = send(client_fd, msg, ft_strlen(msg), 0);
+  if (n < 0)
+  {
+    fprintf(stderr, "Failed to send the starting message to the client\n");
+    return false;
+  }
+  return true;
+}
+
+int accept_connections(int epoll_fd, int sockfd, t_client cls[], epoll_t events[], t_server *server)
 {
   epoll_t client_event;
   int new_fd = accept(sockfd, NULL, NULL);
@@ -26,6 +41,7 @@ int accept_connections(int epoll_fd, int sockfd, t_client cls[], epoll_t events[
     perror("accept");
     return -1;
   }
+  char *start_msg = "Please enter your command: ";
   int flags = fcntl(new_fd, F_GETFL, 0);
   fcntl(new_fd, F_SETFL, flags | O_NONBLOCK);
   client_event.events = EPOLLIN;
@@ -40,10 +56,15 @@ int accept_connections(int epoll_fd, int sockfd, t_client cls[], epoll_t events[
   cls[new_fd].hostname = NULL;
   cls[new_fd].real_name = NULL;
   cls[new_fd].fd = new_fd;
+  cls[new_fd].server_password = NULL;
   cls[new_fd].error_message = NULL;
+  cls[new_fd].server = server;
+  cls[new_fd].is_matched = false;
   events[new_fd] = client_event;
   max_file_descriptors++;
   fprintf(stdout, "New connection %d accepted\n", new_fd);
+  if (!start_message(start_msg, new_fd))
+    return -1;
   return 0;
 }
 
@@ -61,9 +82,11 @@ int receive_data(int client_fd, t_client cls[])
     return -1;
   }
   buff[bytes] = '\0';
-  bool parse_flag = parse_input(buff, cls, client_fd);
-  if (parse_flag == false)
+  int parse_flag = parse_input(buff, cls, client_fd);
+  if (parse_flag == 1)
     return 1;
+  if (parse_flag == 2)
+    return -1;
   return 0;
 }
 
@@ -91,10 +114,13 @@ int main(int ac, char **av)
 {
 	if (ac != 2)
 	{
-		puts("Wrong number of arguments\n");
+		puts("Wrong number of arguments: <irc config file>\n");
 		return 1;
 	}
+  if (parse_config(av[1]))
+    return 8;
   t_client  cls[MAX_CLIENTS];
+  t_server  server;
 	struct sockaddr_in addr;
 	epoll_t event, events[MAX_EVENTS];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
@@ -122,6 +148,14 @@ int main(int ac, char **av)
 		perror("listen");
 		return 4;
 	}
+  int out_socket = socket(AF_INET, SOCK_STREAM, 0);
+  if (out_socket < 0)
+  {
+    perror("socket");
+    return 7;
+  }
+  fcntl(out_socket, F_SETFL, O_NONBLOCK);
+  (void)out_socket; 
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1)
   {
@@ -129,6 +163,7 @@ int main(int ac, char **av)
     close(sockfd);
     return 5;
   }
+  char *start_msg = "Please enter your command: ";
   memset(cls, 0, sizeof(t_client));
   memset(events, 0, sizeof(epoll_t));
   event.events = EPOLLIN;
@@ -139,6 +174,7 @@ int main(int ac, char **av)
     fprintf(stderr, "Error adding epoll fd to epoll event\n");
     return 6;
   }
+  server.password = ft_strdup(av[2]);
   while (1)
   {
     int event_counts = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
@@ -153,11 +189,11 @@ int main(int ac, char **av)
     {
       if (events[i].data.fd == sockfd && events[i].events & EPOLLIN)
       {
-        int ret = accept_connections(epoll_fd, sockfd, cls, events);
+        int ret = accept_connections(epoll_fd, sockfd, cls, events, &server);
         if (ret < 0)
           continue;
       }
-      else if (events[i].data.fd != sockfd && events[i].events & EPOLLIN)
+      if (events[i].data.fd != sockfd && events[i].events & EPOLLIN)
       {
         int ret = receive_data(events[i].data.fd, cls);
         if (ret < 0)
@@ -166,15 +202,22 @@ int main(int ac, char **av)
           continue;
         }
         if (ret == 1)
+        {
           events[i].events = EPOLLOUT;
+          epoll_ctl(epoll_fd, EPOLL_CTL_MOD, events[i].data.fd, &events[events[i].data.fd]);
+        }
       }
       if (events[i].data.fd != sockfd && events[i].events & EPOLLOUT)
       {
         int ret = send_response(events[i].data.fd, cls);
         if (ret < 0)
+        {
+          epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, &events[events[i].data.fd]);
           continue;
-
+        }
       }
+      if (events[i].data.fd != sockfd && !start_message(start_msg, events[i].data.fd))
+        continue;
     }
   }
   close(epoll_fd);

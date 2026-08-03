@@ -19,3 +19,10 @@
 extern int max_file_descriptors;
 
 typedef struct epoll_event epoll_t;
+typedef struct s_client t_client;
+
+typedef struct server
+{
+  char *password;
+} t_server;
+

@@ -1,6 +1,9 @@
 SRCS = server.c \
         parsing/input.c \
-	parsing/parse_utils.c
+				parsing/parse_utils.c \
+				parsing/parse_config.c \
+				utils/get_next_line.c \
+				utils/get_next_line_utils.c
 
 CC = gcc
 

@@ -23,6 +23,9 @@ typedef struct s_client t_client;
 
 typedef struct server
 {
+  int port;
+  char *server_name;
+  char *host;
   char *password;
 } t_server;
 

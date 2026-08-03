@@ -174,7 +174,6 @@ int main(int ac, char **av)
     fprintf(stderr, "Error adding epoll fd to epoll event\n");
     return 6;
   }
-  server.password = ft_strdup(av[2]);
   while (1)
   {
     int event_counts = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);

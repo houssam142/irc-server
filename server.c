@@ -17,7 +17,7 @@ void  free_client(t_client cls[], int client_fd)
   cls[client_fd].fd = -1;
 }
 
-int accept_connections(int epoll_fd, int sockfd, t_client cls[])
+int accept_connections(int epoll_fd, int sockfd, t_client cls[], epoll_t events[])
 {
   epoll_t client_event;
   int new_fd = accept(sockfd, NULL, NULL);
@@ -41,6 +41,7 @@ int accept_connections(int epoll_fd, int sockfd, t_client cls[])
   cls[new_fd].real_name = NULL;
   cls[new_fd].fd = new_fd;
   cls[new_fd].error_message = NULL;
+  events[new_fd] = client_event;
   max_file_descriptors++;
   fprintf(stdout, "New connection %d accepted\n", new_fd);
   return 0;
@@ -49,7 +50,7 @@ int accept_connections(int epoll_fd, int sockfd, t_client cls[])
 int receive_data(int client_fd, t_client cls[])
 {
   ssize_t bytes;
-  char    buff[1024];
+  char    buff[2048];
 
   memset(buff, 0, sizeof(buff));
   bytes = recv(client_fd, buff, sizeof(buff) - 1, 0);
@@ -79,6 +80,10 @@ int send_response(int client_fd, t_client cls[])
     close(client_fd);
     return -1;
   }
+  if (n == 0)
+  {
+
+  }
   return 0;
 }
 
@@ -91,8 +96,7 @@ int main(int ac, char **av)
 	}
   t_client  cls[MAX_CLIENTS];
 	struct sockaddr_in addr;
-	epoll_t event, 
-  events[MAX_EVENTS];
+	epoll_t event, events[MAX_EVENTS];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0)
 	{
@@ -149,7 +153,7 @@ int main(int ac, char **av)
     {
       if (events[i].data.fd == sockfd && events[i].events & EPOLLIN)
       {
-        int ret = accept_connections(epoll_fd, sockfd, cls);
+        int ret = accept_connections(epoll_fd, sockfd, cls, events);
         if (ret < 0)
           continue;
       }
@@ -157,7 +161,10 @@ int main(int ac, char **av)
       {
         int ret = receive_data(events[i].data.fd, cls);
         if (ret < 0)
+        {
+          epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, &events[events[i].data.fd]);
           continue;
+        }
         if (ret == 1)
           events[i].events = EPOLLOUT;
       }

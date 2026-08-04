@@ -21,11 +21,22 @@ extern int max_file_descriptors;
 typedef struct epoll_event epoll_t;
 typedef struct s_client t_client;
 
+typedef enum e_state
+{
+  SERVER,
+  NETWORK,
+  NONE,
+  OPERATOR,
+  LINK
+} t_state;
+
 typedef struct server
 {
-  int port;
+  char **buff;
   char *server_name;
   char *host;
   char *password;
+  int port;
+  bool server_sect_found;
 } t_server;
 

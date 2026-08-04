@@ -117,10 +117,11 @@ int main(int ac, char **av)
 		puts("Wrong number of arguments: <irc config file>\n");
 		return 1;
 	}
-  if (parse_config(av[1]))
+
+  t_server  server;
+  if (parse_config(av[1], &server))
     return 8;
   t_client  cls[MAX_CLIENTS];
-  t_server  server;
 	struct sockaddr_in addr;
 	epoll_t event, events[MAX_EVENTS];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);

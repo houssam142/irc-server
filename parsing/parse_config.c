@@ -49,11 +49,9 @@ t_state classify_line(char *tmp, t_state state)
 
 int check_value_syntax(char *key, char *value)
 {
-  if (!strcmp(key, "port") || !strcmp(key, "max_clients") || !strcmp(key, "max_channels_per_user")
-      || !strcmp(key, "max_nickname_length") || !strcmp(key, "ping_interval") || !strcmp(key, "timeout")
-      || !strcmp(key, "retry_interval"))
+  if (!strcmp(key, "port"))
   {
-    for (int i = 0; i < ft_strlen(value); i++)
+    for (size_t i = 0; i < ft_strlen(value); i++)
     {
       if (!ft_isdigit(value[i]))
       {
@@ -62,7 +60,50 @@ int check_value_syntax(char *key, char *value)
       }
     }
   }
-  if (!strcmp(key, ""))
+  else if (!strcmp(key, "name"))
+  {
+    if (value[0] == '\"' && value[ft_strlen(value) - 1] != '\"')
+    {
+      fprintf(stderr, "Syntax Error: missing closing double quote in %s.", value);
+      return 1;
+    }
+    else if (value[ft_strlen(value) - 1] == '\"' && value[0] != '\"')
+    {
+      fprintf(stderr, "Syntax Error: missing opening double quote in %s.", value);
+      return 1;
+    }
+    else if (value[0] != '\"' && value[ft_strlen(value) - 1] != '\"')
+    {
+      fprintf(stderr, "Syntax Error: missing double quotes in %s.", value);
+      return 1;
+    }
+    for (size_t i = 0; i < ft_strlen(value); i++)
+    {
+      if (!ft_isalpha(value[i]) && value[i] != '-' && value[i] != '\"')
+      {
+        fprintf(stderr, "Syntax Error: Expected '%s' to have a string value but instead '%s'.\n", key, value);
+        return 1;
+      }
+    }
+  }
+  else if (!strcmp(key, "password"))
+  {
+    if (value[0] == '\"' && value[ft_strlen(value) - 1] != '\"')
+    {
+      fprintf(stderr, "Syntax Error: missing closing double quote in %s.", value);
+      return 1;
+    }
+    else if (value[ft_strlen(value) - 1] == '\"' && value[0] != '\"')
+    {
+      fprintf(stderr, "Syntax Error: missing opening double quote in %s.", value);
+      return 1;
+    }
+    else if (value[0] != '\"' && value[ft_strlen(value) - 1] != '\"')
+    {
+      fprintf(stderr, "Syntax Error: missing double quotes in %s.", value);
+      return 1;
+    }
+  }
   return 0;
 }
 

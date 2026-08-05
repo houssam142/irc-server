@@ -11,7 +11,7 @@ bool is_key_allowed(char *key, t_section sect)
   else if (sect == LINK)
   {
     return (!strcmp(key, "name") || !strcmp(key, "password")
-        || !strcmp(key, "port"))
+        || !strcmp(key, "port"));
   }
   return false;
 }

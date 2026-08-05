@@ -27,32 +27,106 @@ char *parse_line_by_line(char *line)
   return copy;
 }
 
-int check_brackets(char *line)
+t_state classify_line(char *tmp, t_state state)
 {
-  
+  char **key_value = ft_split(tmp, '=');
+  if (!key_value)
+    return -1;
+  if (!tmp[0])
+    state = EMPTY;
+  else if (tmp[0] == '[' && tmp[ft_strlen(tmp) - 1] == ']'
+      && ft_strncmp(tmp, "[[", 2) && ft_strncmp(&tmp[ft_strlen(tmp) - 2], "]]", 2))
+    state = SINGLE_TABLE;
+  else if (!ft_strncmp(tmp, "[[", 2) && !ft_strncmp(&tmp[ft_strlen(tmp) - 2], "]]", 2))
+    state = ARRAY_TABLE;
+  else if (get_array_size(key_value) == 2)
+    state = KEY_VALUE;
+  else
+    state = INVALID;
+  ft_free(key_value);
+  return state;
+}
+
+int check_value_syntax(char *key, char *value)
+{
+  if (!strcmp(key, "port") || !strcmp(key, "max_clients") || !strcmp(key, "max_channels_per_user")
+      || !strcmp(key, "max_nickname_length") || !strcmp(key, "ping_interval") || !strcmp(key, "timeout")
+      || !strcmp(key, "retry_interval"))
+  {
+    for (int i = 0; i < ft_strlen(value); i++)
+    {
+      if (!ft_isdigit(value[i]))
+      {
+        fprintf(stderr, "Syntax Error: Expected '%s' to have a value of digits but instead '%s'.\n", key, value);
+        return 1;
+      }
+    }
+  }
+  if (!strcmp(key, ""))
+  return 0;
 }
 
 int validate_config(t_server *server)
 {
   int i;
   char *tmp = NULL;
+  
   t_state state;
+  t_section curr_sect;
 
   i = 0;
-  state = NONE;
+  state = INVALID;
+  curr_sect = NONE;
   while (server->buff[i] != NULL)
   {
     tmp = ft_strtrim(server->buff[i], " \t\n");
     if (!tmp)
       return -1;
-    if (tmp[0] == '[')
+    state = classify_line(tmp, state);
+    if (state == SINGLE_TABLE)
     {
-      if (!strncmp(tmp, "[[", 2))
-      if (is_server(tmp, &state) && is_network(tmp, &state) && is_link(tmp, &state)
-          && is_operator(tmp, &state))
+      if (!strcmp(tmp, "[server]"))
+        curr_sect = SERVER;
+      else
       {
-        fprintf(stderr, "section %s not supported\n", tmp);
+        free(tmp);
+        fprintf(stderr, "Syntax Error: Invalid section header.\nExpected [server].\n");
         return 1;
+      }
+    }
+    else if (state == ARRAY_TABLE)
+    {
+      if (!strcmp(tmp, "[[link]]"))
+        curr_sect = LINK;
+      else
+      {
+        free(tmp);
+        fprintf(stderr, "Syntax Error: Invalid section header.\nExpected [[link]].\n");
+        return 1;
+      }
+    }
+    else if (state == KEY_VALUE)
+    {
+      if (curr_sect == NONE)
+      {
+        free(tmp);
+        fprintf(stderr, "Syntax Error: key-value pairs should be under a section header.\nExpected [server], [network], [[link]] or [[operator]].\n");
+        return 1;
+      }
+      if (curr_sect == SERVER)
+      {
+        char **key_value = ft_split(tmp, '=');
+        if (!key_value)
+          return -1;
+        char *key = ft_strtrim(key_value[0], " \t");
+        char *value = ft_strtrim(key_value[1], " \t");
+        if (!is_key_allowed(key, curr_sect))
+        {
+          fprintf(stderr, "Invalid key '%s' in section 'server'.\nAllowed keys are: name, password and host\n", key);
+          return 1;
+        }
+        if (check_value_syntax(key, value))
+          return 1;
       }
     }
     free(tmp);

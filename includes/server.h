@@ -21,13 +21,22 @@ extern int max_file_descriptors;
 typedef struct epoll_event epoll_t;
 typedef struct s_client t_client;
 
-typedef enum e_state
+typedef enum section
 {
   SERVER,
   NETWORK,
-  NONE,
   OPERATOR,
-  LINK
+  LINK,
+  NONE
+} t_section;
+
+typedef enum e_state
+{
+  SINGLE_TABLE,
+  ARRAY_TABLE,
+  KEY_VALUE,
+  EMPTY,
+  INVALID
 } t_state;
 
 typedef struct server

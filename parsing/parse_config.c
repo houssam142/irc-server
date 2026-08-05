@@ -86,7 +86,10 @@ int validate_config(t_server *server)
     if (state == SINGLE_TABLE)
     {
       if (!strcmp(tmp, "[server]"))
+      {
         curr_sect = SERVER;
+        server->server_sect_found = true;
+      }
       else
       {
         free(tmp);
@@ -96,6 +99,11 @@ int validate_config(t_server *server)
     }
     else if (state == ARRAY_TABLE)
     {
+      if (!server->server_sect_found)
+      {
+        fprintf(stderr, "Syntax Error: [server] section header should be the first section in the configuration file.\n");
+        return 1;
+      }
       if (!strcmp(tmp, "[[link]]"))
         curr_sect = LINK;
       else

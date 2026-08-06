@@ -10,6 +10,13 @@ typedef enum e_state t_state;
 
 typedef enum section t_section;
 
+typedef struct s_link
+{
+  char *name;
+  char *password;
+  int port;
+} t_link;
+
 typedef struct s_client
 {
   t_server *server;

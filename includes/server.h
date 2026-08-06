@@ -46,6 +46,7 @@ typedef struct server
   char *host;
   char *password;
   int port;
+  int link_count;
   bool server_sect_found;
 } t_server;
 

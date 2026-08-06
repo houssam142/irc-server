@@ -47,7 +47,7 @@ t_state classify_line(char *tmp, t_state state)
   return state;
 }
 
-int check_value_syntax(char *key, char *value)
+int check_value_syntax(char *key, char *value, t_server *server)
 {
   if (!strcmp(key, "port"))
   {
@@ -103,6 +103,9 @@ int check_value_syntax(char *key, char *value)
       fprintf(stderr, "Syntax Error: missing double quotes in %s.", value);
       return 1;
     }
+    char *tmp = ft_strtrim(value, "\"");
+    server->password = ft_strdup(tmp);
+    free(tmp);
   }
   return 0;
 }
@@ -126,7 +129,12 @@ int validate_config(t_server *server)
     state = classify_line(tmp, state);
     if (state == SINGLE_TABLE)
     {
-      if (!strcmp(tmp, "[server]"))
+      if (server->server_sect_found != false)
+      {
+        fprintf(stderr, "Syntax Error: Expected one [server] section header in the configuration file.\n");
+        return 1;
+      }
+      else if (!strcmp(tmp, "[server]"))
       {
         curr_sect = SERVER;
         server->server_sect_found = true;
@@ -146,7 +154,10 @@ int validate_config(t_server *server)
         return 1;
       }
       if (!strcmp(tmp, "[[link]]"))
+      {
         curr_sect = LINK;
+        server->link_count++;
+      }
       else
       {
         free(tmp);
@@ -174,7 +185,7 @@ int validate_config(t_server *server)
           fprintf(stderr, "Invalid key '%s' in section 'server'.\nAllowed keys are: name, password and host\n", key);
           return 1;
         }
-        if (check_value_syntax(key, value))
+        if (check_value_syntax(key, value, server))
           return 1;
       }
     }
@@ -193,7 +204,6 @@ int parse_config(char *file, t_server *server)
   char *tmp2 = NULL;
   int file_fd = open(file, O_RDONLY, 0400);
   memset(server, 0, sizeof(t_server));
-  server->server_sect_found = false;
   if (file_fd < 0)
   {
     perror("open");

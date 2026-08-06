@@ -30,9 +30,6 @@ bool  handle_username(t_client cls[], int client_fd, char *buffer)
   cls[client_fd].hostname = ft_strdup(words[1]);
   cls[client_fd].real_name = ft_strdup(words[2]);
   ft_free(words);
-  printf("client username: %s\n", cls[client_fd].username);
-  printf("client hostname: %s\n", cls[client_fd].hostname);
-  printf("client real_name: %s\n", cls[client_fd].real_name);
   return true;
 }
 

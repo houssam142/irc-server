@@ -79,7 +79,7 @@ int check_value_syntax(char *key, char *value)
     }
     for (size_t i = 0; i < ft_strlen(value); i++)
     {
-      if (!ft_isalpha(value[i]) && value[i] != '-' && value[i] != '\"')
+      if (!ft_isalpha(value[i]) && value[i] != '-' && value[i] != '\"' && value[i] != '_')
       {
         fprintf(stderr, "Syntax Error: Expected '%s' to have a string value but instead '%s'.\n", key, value);
         return 1;
@@ -102,6 +102,14 @@ int check_value_syntax(char *key, char *value)
     {
       fprintf(stderr, "Syntax Error: missing double quotes in %s.", value);
       return 1;
+    }
+    for (size_t i = 0; i < ft_strlen(value); i++)
+    {
+      if (!isprint(value[i]))
+      {
+        fprintf(stderr, "Syntax Error: password contains an inprintable character.\n");
+        return 1;
+      }
     }
   }
   return 0;
@@ -159,7 +167,7 @@ int validate_config(t_server *server)
       if (curr_sect == NONE)
       {
         free(tmp);
-        fprintf(stderr, "Syntax Error: key-value pairs should be under a section header.\nExpected [server], [network], [[link]] or [[operator]].\n");
+        fprintf(stderr, "Syntax Error: key-value pairs should be under a section header.\nExpected [server] or [[link]].\n");
         return 1;
       }
       if (curr_sect == SERVER)
@@ -177,6 +185,11 @@ int validate_config(t_server *server)
         if (check_value_syntax(key, value))
           return 1;
       }
+    }
+    else if (state == INVALID)
+    {
+      fprintf(stderr, "Syntax Error: Expression '%s' is incorrect.\nExpected section header or key-value pair.\n", tmp);
+      return 1;
     }
     free(tmp);
     i++;

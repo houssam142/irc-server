@@ -2,6 +2,7 @@
 
 # include "server.h"
 # include "../libft/libft.h"
+# include <ctype.h>
 # include "get_next_line.h"
 
 typedef struct server t_server;

@@ -43,6 +43,7 @@ typedef struct server
 {
   char **buff;
   char *server_name;
+  char *hostname;
   char *host;
   char *password;
   int port;

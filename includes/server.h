@@ -12,6 +12,7 @@
 # include <errno.h>
 # include <fcntl.h>
 # include "parse.h"
+# include <arpa/inet.h>
 
 #define MAX_EVENTS 1000
 # define MAX_CLIENTS 1024

@@ -438,6 +438,5 @@ int parse_config(char *file, t_server *server)
   }
   close(file_fd);
   ft_free(arr);
-  exit(1);
   return 0;
 }

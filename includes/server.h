@@ -20,6 +20,7 @@ extern int max_file_descriptors;
 
 typedef struct epoll_event epoll_t;
 typedef struct s_client t_client;
+typedef struct s_link t_link;
 
 typedef enum section
 {
@@ -41,6 +42,7 @@ typedef enum e_state
 
 typedef struct server
 {
+  t_link *links;
   char **buff;
   char *server_name;
   char *hostname;

@@ -59,22 +59,33 @@ int check_value_syntax(char *key, char *value, t_server *server)
         return 1;
       }
     }
+    if (ft_strlen(value) > 5)
+    {
+      fprintf(stderr, "Port value should be between 1 and 65535.\n");
+      return 1;
+    }
+    server->port = atoi(value);
+    if (server->port < 1 || server->port > 65535)
+    {
+      fprintf(stderr, "Port value should be between 1 and 65535.\n");
+      return 1;
+    }
   }
   else if (!strcmp(key, "name"))
   {
     if (value[0] == '\"' && value[ft_strlen(value) - 1] != '\"')
     {
-      fprintf(stderr, "Syntax Error: missing closing double quote in %s.", value);
+      fprintf(stderr, "Syntax Error: missing closing double quote in %s.\n", value);
       return 1;
     }
     else if (value[ft_strlen(value) - 1] == '\"' && value[0] != '\"')
     {
-      fprintf(stderr, "Syntax Error: missing opening double quote in %s.", value);
+      fprintf(stderr, "Syntax Error: missing opening double quote in %s.\n", value);
       return 1;
     }
     else if (value[0] != '\"' && value[ft_strlen(value) - 1] != '\"')
     {
-      fprintf(stderr, "Syntax Error: missing double quotes in %s.", value);
+      fprintf(stderr, "Syntax Error: missing double quotes in %s.\n", value);
       return 1;
     }
     for (size_t i = 0; i < ft_strlen(value); i++)
@@ -85,6 +96,9 @@ int check_value_syntax(char *key, char *value, t_server *server)
         return 1;
       }
     }
+    char *tmp = ft_strtrim(value, "\"");
+    server->server_name = ft_strdup(tmp);
+    free(tmp);
   }
   else if (!strcmp(key, "password"))
   {
@@ -131,7 +145,7 @@ int validate_config(t_server *server)
     {
       if (server->server_sect_found != false)
       {
-        fprintf(stderr, "Syntax Error: Expected one [server] section header in the configuration file.\n");
+        fprintf(stderr, "Syntax Error: Duplicate section '[server]'\n");
         return 1;
       }
       else if (!strcmp(tmp, "[server]"))

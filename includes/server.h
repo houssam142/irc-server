@@ -12,10 +12,13 @@
 # include <errno.h>
 # include <fcntl.h>
 # include "parse.h"
+# include <signal.h>
 # include <arpa/inet.h>
 
 #define MAX_EVENTS 1000
 # define MAX_CLIENTS 1024
+
+# define MAX_PASSWORD_LENGTH 64
 
 extern int max_file_descriptors;
 
@@ -31,6 +34,13 @@ typedef enum section
   LINK,
   NONE
 } t_section;
+
+enum server_state
+{
+  SERVER_DISCONNECTED,
+  SERVER_CONNECTED,
+  SERVER_AUTHENTIFICATED
+};
 
 typedef enum e_state
 {
@@ -48,9 +58,10 @@ typedef struct server
   char *server_name;
   char *hostname;
   char *host;
-  char *password;
+  char password[MAX_PASSWORD_LENGTH + 1];
   int port;
   int link_count;
   bool server_sect_found;
+  server_state serv_state;
 } t_server;
 

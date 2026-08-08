@@ -24,7 +24,7 @@ bool start_message(char *msg, int client_fd)
   ssize_t n;
 
   n = send(client_fd, msg, ft_strlen(msg), 0);
-  if (n < 0)
+  if (n <= 0)
   {
     fprintf(stderr, "Failed to send the starting message to the client\n");
     return false;
@@ -77,11 +77,14 @@ int receive_data(int client_fd, t_client cls[])
   bytes = recv(client_fd, buff, sizeof(buff) - 1, 0);
   if (bytes <= 0)
   {
+    if (errno == EAGAIN || errno == EWOULDBLOCK)
+      return 1;
     fprintf(stderr, "client %d left the server\n", client_fd);
     close(client_fd);
     return -1;
   }
   buff[bytes] = '\0';
+  //printf("buff: %s\n", buff);
   int parse_flag = parse_input(buff, cls, client_fd);
   if (parse_flag == 1)
     return 1;
@@ -123,7 +126,9 @@ int main(int ac, char **av)
     return 8;
   t_client  cls[MAX_CLIENTS];
 	struct sockaddr_in addr;
+  int out_socket;
 	epoll_t event, events[MAX_EVENTS];
+  epoll_t another_event[server.link_count - 1];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0)
 	{
@@ -164,36 +169,58 @@ int main(int ac, char **av)
     fprintf(stderr, "Error adding epoll fd to epoll event\n");
     return 6;
   }
-  int out_socket = socket(AF_INET, SOCK_STREAM, 0);
-  if (out_socket < 0)
-  {
-    perror("socket");
-    return 7;
-  }
-  fcntl(out_socket, F_SETFL, O_NONBLOCK);
   for (int i = 0; i < server.link_count; i++)
   {
-    epoll_t another_event;
+    out_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (out_socket < 0)
+    {
+      perror("socket");
+      return 7;
+    }
     struct sockaddr_in addr_conn;
     addr_conn.sin_family = AF_INET;
     addr_conn.sin_port = htons(atoi(ft_itoa(server.links[i].port)));
     addr_conn.sin_addr.s_addr = INADDR_ANY;
-    connect(out_socket, (struct sockaddr *)&addr_conn, sizeof(addr_conn));
-    if (errno == EINPROGRESS)
+    int res = connect(out_socket, (struct sockaddr *)&addr_conn, sizeof(addr_conn));
+    if (res == 0)
     {
-      another_event.events = EPOLLOUT;
-      another_event.data.fd = out_socket;
-      if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, out_socket, &another_event) < 0)
+      char *buff = malloc(ft_strlen(server.links[i].password) + 64);
+      if (!buff)
+      {
+        perror("malloc");
+        return 15;
+      }
+      another_event[i].events = EPOLLIN;
+      another_event[i].data.fd = out_socket;
+      if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, out_socket, another_event) < 0)
       {
         fprintf(stderr, "Error adding epoll fd to epoll event\n");
         return 6;
+      }
+      sprintf(buff, "PASS %s\n\r\nSERVER %s\r\n", server.links[i].password, server.links[i].name);
+      if (!start_message(buff, out_socket))
+        return 16;
+    }
+    else if (res == -1)
+    {
+      if (errno == EINPROGRESS)
+      {
+        another_event[i].events = EPOLLOUT;
+        another_event[i].data.fd = out_socket;
+        epoll_ctl(epoll_fd, EPOLL_CTL_ADD, out_socket, another_event);
+        epoll_wait(epoll_fd, another_event, server.link_count, -1);
+      }
+      else
+      {
+        perror("connect");
+        continue;
       }
     }
   }
   char *start_msg = "Please enter your command: ";
   memset(cls, 0, sizeof(t_client));
   memset(events, 0, sizeof(epoll_t));
-  max_file_descriptors = out_socket;
+  max_file_descriptors = sockfd;
   while (1)
   {
     int event_counts = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);

@@ -103,8 +103,13 @@ bool  handle_nickname(char *buffer, t_client cls[], int client_fd)
 
 bool handle_password(t_client cls[], int client_fd, char *buff)
 {
-  char *tmp = ft_substr(buff, ft_strlen("PASS") + 1, ft_strlen(buff));
-  char *arg = ft_strtrim(tmp, " \t\n");
+  char *tmp = NULL;
+  char *pos = strstr(buff, "\r\n");
+  if (!pos[0])
+    tmp = ft_substr(buff, ft_strlen("PASS") + 1, ft_strlen(buff));
+  else
+    tmp = ft_substr(buff, ft_strlen("PASS") + 1, ft_strlen(&buff[ft_strlen("PASS") + 1]) - ft_strlen(pos));
+  char *arg = ft_strtrim(tmp, " \t\n\"");
   free(tmp);
   if (!arg[0])
   {
@@ -147,6 +152,8 @@ int parse_input(char *buff, t_client cls[], int client_fd)
     bool isMatched = handle_password(cls, client_fd, buff_trimed);
     if (!isMatched)
       return 1;
+    if (cls[client_fd].is_matched)
+      fprintf(stdout, "Password is correct, connection established with the server\n");
   }
   else if (!ft_strncmp(buff_trimed, "NICK", 4))
   {

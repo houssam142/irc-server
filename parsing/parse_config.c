@@ -117,8 +117,14 @@ int check_server_eles_syntax(char *key, char *value, t_server *server)
       fprintf(stderr, "Syntax Error: missing double quotes in %s.", value);
       return 1;
     }
-    char *tmp = ft_strtrim(value, "\"");
-    server->password = ft_strdup(tmp);
+    char *tmp = ft_strtrim(value, "\t \"");
+    if (ft_strlen(tmp) > 64)
+    {
+      fprintf(stderr, "password should not exceed 64 characters.\n");
+      free(tmp);
+      return 1;
+    }
+    sprintf(server->password, "%s", tmp);
     free(tmp);
   }
   return 0;
@@ -173,8 +179,6 @@ int check_link_eles_syntax(char *key, char *value)
         return 1;
       }
     }
-    char *tmp = ft_strtrim(value, "\"");
-    free(tmp);
   }
   else if (!strcmp(key, "password"))
   {
@@ -328,11 +332,11 @@ int link_key_value(t_server *server, t_link *links, int i, int curr_link)
   if (!key || !value)
     return -1;
   if (!strcmp(key, "name"))
-    links[curr_link].name = ft_strdup(value);
+    links[curr_link].name = ft_strtrim(value, "\"");
   else if (!strcmp(key, "port"))
     links[curr_link].port = atoi(value);
   else if (!strcmp(key, "password"))
-    links[curr_link].password = ft_strdup(value);
+    links[curr_link].password = ft_strtrim(value, "\"");
   return 0;
 }
 

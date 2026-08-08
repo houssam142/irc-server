@@ -123,7 +123,7 @@ int main(int ac, char **av)
     return 8;
   t_client  cls[MAX_CLIENTS];
 	struct sockaddr_in addr;
-	epoll_t event, another_event, events[MAX_EVENTS];
+	epoll_t event, events[MAX_EVENTS];
 	int sockfd = socket(AF_INET, SOCK_STREAM, 0);
 	if (sockfd < 0)
 	{
@@ -149,26 +149,7 @@ int main(int ac, char **av)
 		perror("listen");
 		return 4;
 	}
-  int out_socket = socket(AF_INET, SOCK_STREAM, 0);
-  if (out_socket < 0)
-  {
-    perror("socket");
-    return 7;
-  }
-  for (int i = 0; i < server.link_count; i++)
-  {
-    struct sockaddr_in addr_conn;
-    addr_conn.sin_family = AF_INET;
-    addr_conn.sin_port = htons(atoi(ft_itoa(server.port)));
-    addr_conn.sin_addr.s_addr = INADDR_ANY;
-    if (connect(out_socket, (struct sockaddr *)&addr_conn, sizeof(addr_conn)) < 0)
-    {
-      perror("connect");
-      return 12;
-    }
-  }
-  send(out_socket, "hello world\n", 12, 0);
-  //close(out_socket);
+  fcntl(sockfd, F_SETFL, O_NONBLOCK);
   int epoll_fd = epoll_create1(0);
   if (epoll_fd == -1)
   {
@@ -176,24 +157,43 @@ int main(int ac, char **av)
     close(sockfd);
     return 5;
   }
-  char *start_msg = "Please enter your command: ";
-  memset(cls, 0, sizeof(t_client));
-  memset(events, 0, sizeof(epoll_t));
   event.events = EPOLLIN;
   event.data.fd = sockfd;
-  another_event.events = EPOLLIN;
-  another_event.data.fd = out_socket;
-  max_file_descriptors = out_socket;
   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sockfd, &event) < 0)
   {
     fprintf(stderr, "Error adding epoll fd to epoll event\n");
     return 6;
   }
-  if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, out_socket, &another_event) < 0)
+  int out_socket = socket(AF_INET, SOCK_STREAM, 0);
+  if (out_socket < 0)
   {
-    fprintf(stderr, "Error adding epoll fd to epoll event\n");
-    return 6;
+    perror("socket");
+    return 7;
   }
+  fcntl(out_socket, F_SETFL, O_NONBLOCK);
+  for (int i = 0; i < server.link_count; i++)
+  {
+    epoll_t another_event;
+    struct sockaddr_in addr_conn;
+    addr_conn.sin_family = AF_INET;
+    addr_conn.sin_port = htons(atoi(ft_itoa(server.links[i].port)));
+    addr_conn.sin_addr.s_addr = INADDR_ANY;
+    connect(out_socket, (struct sockaddr *)&addr_conn, sizeof(addr_conn));
+    if (errno == EINPROGRESS)
+    {
+      another_event.events = EPOLLOUT;
+      another_event.data.fd = out_socket;
+      if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, out_socket, &another_event) < 0)
+      {
+        fprintf(stderr, "Error adding epoll fd to epoll event\n");
+        return 6;
+      }
+    }
+  }
+  char *start_msg = "Please enter your command: ";
+  memset(cls, 0, sizeof(t_client));
+  memset(events, 0, sizeof(epoll_t));
+  max_file_descriptors = out_socket;
   while (1)
   {
     int event_counts = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);

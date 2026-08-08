@@ -273,10 +273,10 @@ int validate_config(t_server *server)
       {
         if (!is_key_allowed(key, curr_sect))
         {
+          fprintf(stderr, "Invalid key '%s' in section [server].\nAllowed keys are: name, password and port\n", key);
           ft_free(key_value);
           free(key);
           free(value);
-          fprintf(stderr, "Invalid key '%s' in section [server].\nAllowed keys are: name, password and port\n", key);
           return 1;
         }
         if (check_server_eles_syntax(key, value, server))
@@ -291,10 +291,10 @@ int validate_config(t_server *server)
       {
         if (!is_key_allowed(key, curr_sect))
         {
+          fprintf(stderr, "Invalid key '%s' in section [[link]].\nAllowed keys are: name, password and port\n", key);
           ft_free(key_value);
           free(key);
           free(value);
-          fprintf(stderr, "Invalid key '%s' in section [[link]].\nAllowed keys are: name, password and port\n", key);
           return 1;
         }
         if (check_link_eles_syntax(key, value))

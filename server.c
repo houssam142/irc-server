@@ -88,8 +88,10 @@ int receive_data(int client_fd, t_client cls[])
   int parse_flag = parse_input(buff, cls, client_fd);
   if (parse_flag == 1)
     return 1;
-  if (parse_flag == 2)
+  else if (parse_flag == 2)
     return -1;
+  else if (parse_flag == 4)
+    return 4;
   return 0;
 }
 
@@ -220,7 +222,7 @@ int main(int ac, char **av)
   char *start_msg = "Please enter your command: ";
   memset(cls, 0, sizeof(t_client));
   memset(events, 0, sizeof(epoll_t));
-  max_file_descriptors = sockfd;
+  max_file_descriptors = epoll_fd + server.link_count;
   while (1)
   {
     int event_counts = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
@@ -252,6 +254,8 @@ int main(int ac, char **av)
           events[i].events = EPOLLOUT;
           epoll_ctl(epoll_fd, EPOLL_CTL_MOD, events[i].data.fd, &events[events[i].data.fd]);
         }
+        if (ret == 4)
+          continue; // this is for the CRLF design
       }
       if (events[i].data.fd != sockfd && events[i].events & EPOLLOUT)
       {

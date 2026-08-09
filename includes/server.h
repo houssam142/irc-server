@@ -62,6 +62,6 @@ typedef struct server
   int port;
   int link_count;
   bool server_sect_found;
-  server_state serv_state;
+  enum server_state serv_state;
 } t_server;
 

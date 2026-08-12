@@ -15,8 +15,9 @@
 # include <signal.h>
 # include <arpa/inet.h>
 
-#define MAX_EVENTS 1000
-# define MAX_CLIENTS 1024
+#define MAX_EVENTS 2000
+
+# define INITIAL_CLIENT_CAPACITY 8
 
 # define MAX_PASSWORD_LENGTH 64
 
@@ -25,6 +26,13 @@ extern int max_file_descriptors;
 typedef struct epoll_event epoll_t;
 typedef struct s_client t_client;
 typedef struct s_link t_link;
+
+typedef struct s_remote_user
+{
+  char name[64];
+  char username[64];
+  t_link *server_origin;
+} t_remote_user;
 
 typedef enum section
 {
@@ -38,7 +46,6 @@ typedef enum section
 enum server_state
 {
   SERVER_DISCONNECTED,
-  SERVER_CONNECTED,
   SERVER_AUTHENTIFICATED
 };
 
@@ -54,14 +61,20 @@ typedef enum e_state
 typedef struct server
 {
   t_link *links;
+  t_remote_user *remote_users;
+  t_client *cls;
   char **buff;
   char *server_name;
   char *hostname;
   char *host;
+  char buff_recv[2048];
   char password[MAX_PASSWORD_LENGTH + 1];
   int port;
   int link_count;
+  size_t client_count;
+  size_t client_cap;
   bool server_sect_found;
   enum server_state serv_state;
 } t_server;
 
+void  free_client(t_server *server, int client_fd);

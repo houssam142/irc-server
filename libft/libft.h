@@ -14,6 +14,7 @@
 # define LIBFT_H
 
 # include <stdlib.h>
+# include <stdio.h>
 # include <unistd.h>
 
 typedef struct s_list
@@ -23,7 +24,7 @@ typedef struct s_list
 }t_list;
 
 char	*ft_strrchr(const char *str, int c);
-char	*ft_strnstr(const char *str, const char *to_find, size_t len);
+int ft_strnstr(const char *str, const char *to_find, size_t len);
 char	*ft_strchr(const char *str, int search_str);
 char	*ft_substr(char const *s, unsigned int start, size_t len);
 char	*ft_strdup(const char *str);

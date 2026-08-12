@@ -1,7 +1,7 @@
 #include "../includes/parse.h"
 #include "../includes/server.h"
 
-bool  handle_username(t_client cls[], int client_fd, char *buffer)
+bool  handle_username(t_client *cls, int client_fd, char *buffer)
 {
   char *tmp = NULL;
   char *pos = strstr(buffer, "\r\n");
@@ -50,18 +50,18 @@ void broadcast(int client_fd, int except_fd)
   }
 }
 
-int quit_command(t_client cls[], int client_fd)
+int quit_command(t_server *server, int client_fd)
 {
-  free_client(cls, client_fd);
-  for (int i = 0; i <= max_file_descriptors; i++)
+  free_client(server, client_fd);
+  for (size_t i = 0; i <= server->client_count; i++)
   {
-    if (cls[i].fd != 0 && cls[i].fd != -1 && cls[i].fd != client_fd)
-      broadcast(cls[i].fd, client_fd);
+    if (server->cls[i].fd != 0 && server->cls[i].fd != -1 && server->cls[i].fd != client_fd)
+      broadcast(server->cls[i].fd, client_fd);
   }
   return 0;
 }
 
-bool  handle_nickname(char *buffer, t_client cls[], int client_fd)
+bool  handle_nickname(char *buffer, t_client *cls, int client_fd)
 {
   char *tmp = NULL;
   char *pos = strstr(buffer, "\r\n");
@@ -95,7 +95,7 @@ bool  handle_nickname(char *buffer, t_client cls[], int client_fd)
   ft_free(words);
   for (int i = 0; i <= max_file_descriptors; i++)
   {
-    if (cls[i].nick != NULL && !strcmp(cls[i].nick, arg))
+    if (cls[i].nick != NULL && !strcmp(cls[i].nick, arg) && cls[i].fd != client_fd && cls[i].conn_type == CLIENT_CONNECTED)
     {
       char m[64];
       ft_bzero(m, sizeof(m));
@@ -104,12 +104,19 @@ bool  handle_nickname(char *buffer, t_client cls[], int client_fd)
       free(arg);
       return false;
     }
+    else if (cls[i].conn_type == SERVER_CONNECTED)
+    {
+      for (int i = 0; i <= max_file_descriptors; i++)
+      {
+
+      }
+    }
   }
   cls[client_fd].nick = ft_strdup(arg);
   return true;
 }
 
-bool handle_password(t_client cls[], int client_fd, char *buff)
+bool handle_password(t_client *cls, int client_fd, char *buff)
 {
   char *tmp = NULL;
   char *pos = strstr(buff, "\r\n");
@@ -140,7 +147,7 @@ bool handle_password(t_client cls[], int client_fd, char *buff)
     return false;
   }
   ft_free(words);
-  if (strcmp(arg, cls[client_fd].server->password))
+  if (strcmp(arg, cls[client_fd].server_side->password))
   {
     cls[client_fd].error_message = ft_strdup("incorrect password, try again\n");
     free(arg);
@@ -152,58 +159,93 @@ bool handle_password(t_client cls[], int client_fd, char *buff)
   return true;
 }
 
-int parse_input(char *buff, t_client cls[], int client_fd)
+int change_conn_type(char *buff, t_client *cls, int client_fd)
 {
-  char  *buff_trimed = ft_strtrim(buff, " \t");
-  if (ft_strlen(buff_trimed) == 2)
-    return 4; // this is for CRLF, because nc command with the flag -C keeps sending a second buffer containing only "\r\n"
-  if (!ft_strncmp(buff_trimed, "PASS", 4))
+  char *tmp = ft_strtrim(buff, "\r\n");
+  char *value = ft_substr(tmp, ft_strlen("SERVER") + 1, ft_strlen(tmp));
+  if (!tmp || !value)
+    return -1;
+  for (int i = 0; i < cls[client_fd].server_side->link_count; i++)
   {
-    bool isMatched = handle_password(cls, client_fd, buff_trimed);
-    if (!isMatched)
-      return 1;
-    if (cls[client_fd].is_matched)
+    if (!strcmp(cls[client_fd].server_side->links[i].name, value))
     {
-      cls[client_fd].error_message = ft_strdup("Password is correct, connection established with the server\n");
-      return 1;
+      cls[client_fd].conn_type = SERVER_CONNECTED;
+      break;
     }
   }
-  else if (!ft_strncmp(buff_trimed, "NICK", 4))
+  free(value);
+  free(tmp);
+  return 0;
+}
+
+int parse_input(char *buff, t_server *server, int client_fd)
+{
+  char *buff_trimed = NULL;
+  for (size_t i = 0; i < server->client_count; i++)
   {
-    if (!cls[client_fd].is_matched)
+    if (server->cls[i].fd == client_fd)
     {
-      cls[client_fd].error_message = ft_strdup("Can't execute command: not connected to the server\n");
-      return 1;
+      buff_trimed = ft_strtrim(buff, " \t");
+      if (ft_strlen(buff_trimed) <= 2)
+      {
+        free(buff_trimed);
+        return 4; // this is for CRLF, because nc command with the flag -C keeps sending a second buffer containing only "\r\n"
+      }
+      if (!ft_strncmp(buff_trimed, "PASS", 4))
+      {
+        bool isMatched = handle_password(server->cls, i, buff_trimed);
+        if (!isMatched)
+          return 1;
+        if (server->cls[i].is_matched)
+        {
+          if (!ft_strncmp(&buff_trimed[ft_strnstr(buff_trimed, "\r\n", ft_strlen(buff_trimed)) + 2], "SERVER", 6))
+          {
+            if (change_conn_type(&buff_trimed[ft_strnstr(buff_trimed, "\r\n", ft_strlen(buff_trimed)) + 2], server->cls, i))
+              return -1;
+          }
+          fprintf(stdout, "Attempt to enter the IRC server was successfull\n");
+          server->cls[i].error_message = ft_strdup("Password is correct, Welcome to IRC server\n");
+          return 1;
+        }
+      }
+      else if (!ft_strncmp(buff_trimed, "NICK", 4))
+      {
+        if (!server->cls[i].is_matched)
+        {
+          server->cls[i].error_message = ft_strdup("Can't execute command: not connected to the server\n");
+          return 1;
+        }
+        if (!handle_nickname(buff_trimed, server->cls, i))
+          return 1;
+      }
+      else if (server->cls[i].is_matched && !ft_strncmp(buff_trimed, "USER", 4))
+      {
+        if (!server->cls[i].is_matched)
+        {
+          server->cls[i].error_message = ft_strdup("Can't execute command: not connected to the server\n");
+          return 1;
+        }
+        if (!handle_username(server->cls, i, buff_trimed))
+          return 1;
+      }
+      else if (server->cls[i].is_matched && !ft_strncmp(buff_trimed, "QUIT", 4))
+      {
+        if (!server->cls[i].is_matched)
+        {
+          server->cls[i].error_message = ft_strdup("Can't execute command: not connected to the server\n");
+          return 1;
+        }
+        if (!quit_command(server, i))
+          return 2;
+      }
+      else
+      {
+        server->cls[i].error_message = ft_strdup("Irc server: Command not supported\n");
+        free(buff_trimed);
+        return 1;
+      }
+      free(buff_trimed);
     }
-    if (!handle_nickname(buff_trimed, cls, client_fd))
-      return 1;
   }
-  else if (cls[client_fd].is_matched && !ft_strncmp(buff_trimed, "USER", 4))
-  {
-    if (!cls[client_fd].is_matched)
-    {
-      cls[client_fd].error_message = ft_strdup("Can't execute command: not connected to the server\n");
-      return 1;
-    }
-    if (!handle_username(cls, client_fd, buff_trimed))
-      return 1;
-  }
-  else if (cls[client_fd].is_matched && !ft_strncmp(buff_trimed, "QUIT", 4))
-  {
-    if (!cls[client_fd].is_matched)
-    {
-      cls[client_fd].error_message = ft_strdup("Can't execute command: not connected to the server\n");
-      return 1;
-    }
-    if (!quit_command(cls, client_fd))
-      return 2;
-  }
-  else
-  {
-    cls[client_fd].error_message = ft_strdup("Irc server: Command not supported\n");
-    free(buff_trimed);
-    return 1;
-  }
-  free(buff_trimed);
   return 0;
 }

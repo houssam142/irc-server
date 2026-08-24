@@ -30,11 +30,13 @@ typedef struct s_client
   char *username;
   char *hostname;
   char *real_name;
+  char *server_name;
   char *error_message;
   char *server_password;
   int   fd;
   t_connection_type conn_type;
   bool  is_matched;
+  bool  registered;
 } t_client;
 
 int parse_input(char *buff, t_server *server, int client_fd);

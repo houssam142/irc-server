@@ -1,42 +1,42 @@
 #include "includes/server.h"
 
-int max_file_descriptors;
-
 
 void  free_client(t_server *server, int client_fd)
 {
   for (size_t i = 0; i < server->client_count; i++)
   {
-    t_client cls = server->cls[i];
-    if (cls.fd == client_fd)
+    if (server->cls[i].fd == client_fd)
     {
-      if (cls.nick)
+      if (server->cls[i].nick)
       {
-        free(cls.nick);
-        cls.nick = NULL;
+        free(server->cls[i].nick);
+        server->cls[i].nick = NULL;
       }
-      if (cls.username)
+      if (server->cls[i].username)
       {
-        free(cls.username);
-        cls.nick = NULL;
+        free(server->cls[i].username);
+        server->cls[i].nick = NULL;
       }
-      if (cls.hostname)
+      if (server->cls[i].hostname)
       {
-        free(cls.hostname);
-        cls.hostname = NULL;
+        free(server->cls[i].hostname);
+        server->cls[i].hostname = NULL;
       }
-      if (cls.real_name)
+      if (server->cls[i].real_name)
       {
-        free(cls.real_name);
-        cls.real_name = NULL;
+        free(server->cls[i].real_name);
+        server->cls[i].real_name = NULL;
       }
-      if (cls.error_message)
+      if (server->cls[i].error_message)
       {
-        free(cls.error_message);
-        cls.error_message = NULL;
+        free(server->cls[i].error_message);
+        server->cls[i].error_message = NULL;
       }
       close(client_fd);
-      cls.fd = -1;
+      server->cls[i].fd = -1;
+      server->cls[i].registered = false;
+      server->cls[i].is_matched = false;
+      server->client_id--;
       memset(server->buff_recv, 0, sizeof(server->buff_recv));
     }
   }
@@ -86,6 +86,7 @@ int accept_connections(int epoll_fd, int sockfd, epoll_t events[], t_server *ser
   server->cls[server->client_count].nick = NULL;
   server->cls[server->client_count].username = NULL;
   server->cls[server->client_count].hostname = NULL;
+  server->cls[server->client_count].server_name = NULL;
   server->cls[server->client_count].real_name = NULL;
   server->cls[server->client_count].fd = new_fd;
   server->cls[server->client_count].server_password = NULL;
@@ -93,9 +94,10 @@ int accept_connections(int epoll_fd, int sockfd, epoll_t events[], t_server *ser
   server->cls[server->client_count].is_matched = false;
   server->cls[server->client_count].conn_type = CLIENT_CONNECTED;
   server->cls[server->client_count].server_side = server;
+  server->cls[server->client_count].registered = false;
   events[new_fd] = client_event;
   server->client_count++;
-  max_file_descriptors++;
+  server->client_id++;
   fprintf(stdout, "New connection %d accepted\n", new_fd);
   if (!start_message(start_msg, new_fd))
     return -1;
@@ -106,28 +108,30 @@ int receive_data(int client_fd, t_server *server)
 {
   ssize_t bytes;
   char    buff[2048];
+  int parse_flag;
 
   memset(buff, 0, sizeof(buff));
   bytes = recv(client_fd, buff, sizeof(buff), 0);
   if (bytes <= 0)
   {
     fprintf(stderr, "client %d left the server\n", client_fd);
-    memset(server->buff_recv, 0, sizeof(server->buff_recv));
     free_client(server, client_fd);
     return -1;
   }
   strcat(server->buff_recv, buff);
   int pos = ft_strnstr(server->buff_recv, "\r\n", ft_strlen(server->buff_recv));
   if (pos < 0)
-    return 0;
-  server->buff_recv[ft_strlen(server->buff_recv)] = '\0';
-  int parse_flag = parse_input(server->buff_recv, server, client_fd);
-  if (parse_flag == 1)
-    return 1;
-  else if (parse_flag == 2)
-    return -1;
-  else if (parse_flag == 4)
-    return 4;
+    return 2;
+  switch ((parse_flag = parse_input(server->buff_recv, server, client_fd))) {
+    case 1:
+      return 1;
+    case 2:
+      return -1;
+    case 4:
+      return 4;
+    default:
+      break;
+  }
   return 0;
 }
 
@@ -154,7 +158,6 @@ int send_response(int client_fd, t_server *server)
       }
     }
   }
-  memset(server->buff_recv, 0, sizeof(server->buff_recv));
   return 0;
 }
 
@@ -177,6 +180,7 @@ int main(int ac, char **av)
   }
   server.cls = cls;
   server.client_count = 0;
+  server.client_id = 0;
   server.client_cap = INITIAL_CLIENT_CAPACITY;
 	struct sockaddr_in addr;
   int out_socket;
@@ -259,6 +263,7 @@ int main(int ac, char **av)
       }
       free(buff);
       server.links[i].fd = out_socket;
+      fprintf(stdout, "Server-to-server connection established with fd %d\n", out_socket);
     }
     else if (res == -1)
     {
@@ -278,7 +283,6 @@ int main(int ac, char **av)
   }
   char *start_msg = "Please enter your command: ";
   memset(events, 0, sizeof(epoll_t));
-  max_file_descriptors = epoll_fd + server.link_count;
   while (1)
   {
     int event_counts = epoll_wait(epoll_fd, events, MAX_EVENTS, -1);
@@ -300,19 +304,19 @@ int main(int ac, char **av)
       if (events[i].data.fd != sockfd && events[i].events & EPOLLIN)
       {
         int ret = receive_data(events[i].data.fd, &server);
-        if (!ret)
+        if (ret == 2)
           continue;
         if (ret < 0)
         {
           epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, &events[events[i].data.fd]);
           continue;
         }
-        if (ret == 1)
+        else if (ret == 1)
         {
           events[i].events = EPOLLOUT;
           epoll_ctl(epoll_fd, EPOLL_CTL_MOD, events[i].data.fd, &events[events[i].data.fd]);
         }
-        if (ret == 4)
+       else if (ret == 4)
         {
           memset(server.buff_recv, 0, sizeof(server.buff_recv));
           goto message;
@@ -326,6 +330,7 @@ int main(int ac, char **av)
           epoll_ctl(epoll_fd, EPOLL_CTL_DEL, events[i].data.fd, &events[events[i].data.fd]);
           continue;
         }
+        memset(server.buff_recv, 0, sizeof(server.buff_recv));
       }
     message:
       if (events[i].data.fd != sockfd && !start_message(start_msg, events[i].data.fd))

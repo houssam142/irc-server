@@ -21,8 +21,6 @@
 
 # define MAX_PASSWORD_LENGTH 64
 
-extern int max_file_descriptors;
-
 typedef struct epoll_event epoll_t;
 typedef struct s_client t_client;
 typedef struct s_link t_link;
@@ -73,6 +71,7 @@ typedef struct server
   int link_count;
   size_t client_count;
   size_t client_cap;
+  size_t client_id;
   bool server_sect_found;
   enum server_state serv_state;
 } t_server;

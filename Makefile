@@ -22,8 +22,8 @@ all: $(EXEC)
 $(EXEC): $(OBJS)
 	@make -s -C ./libft
 	$(CC) $(OBJS) -no-pie $(LIBFT_LIB) -o $(EXEC)
-%o: %.c
-	$(CC) $(CFLAG) -c $< -o $@
+%.o: %.c
+	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	@make -s fclean -C ./libft
